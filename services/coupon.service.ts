@@ -1,15 +1,15 @@
+import { db } from "@/lib/firebase";
+import type { Coupon } from "@/types";
 import {
   collection,
   doc,
   getDocs,
   limit,
   query,
+  serverTimestamp,
   setDoc,
   where,
-  serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { Coupon } from "@/types";
 
 export async function fetchCoupons(uid: string): Promise<Coupon[]> {
   const qy = query(collection(db, "coupons"), where("uid", "==", uid));
@@ -44,7 +44,11 @@ export function randomCode(prefix = "CPN") {
   return `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
-export async function createRewardCoupon(uid: string, title: string) {
+export async function createRewardCoupon(
+  uid: string,
+  title: string,
+  imageUrl?: string
+) {
   const id = doc(collection(db, "coupons")).id;
   const ref = doc(db, "coupons", id);
   const coupon: Coupon = {
@@ -55,6 +59,7 @@ export async function createRewardCoupon(uid: string, title: string) {
     code: randomCode("RWD"),
     status: "active",
     createdAt: serverTimestamp() as any,
+    ...(imageUrl && { imageUrl }), // Stocker l'image seulement si elle existe
   };
   await setDoc(ref, coupon);
   return coupon;

@@ -1,20 +1,20 @@
 // src/lib/store.ts
+import { ClaimableReward } from "@/constants/Reward.js";
+import { db } from "@/lib/firebase";
 import {
   collection,
   doc,
-  setDoc,
   getDoc,
   getDocs,
+  increment,
+  limit,
+  orderBy,
   query,
+  serverTimestamp,
+  setDoc,
   where,
   writeBatch,
-  serverTimestamp,
-  increment,
-  orderBy,
-  limit,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { ClaimableReward } from "@/constants/Reward.js";
 
 // --- CONFIG
 export const POINTS_PER_EURO = 1;
@@ -55,7 +55,6 @@ export async function getUserByCustomerCode(rawCode: string) {
     balance: typeof data.balance === "number" ? data.balance : 0,
   };
 }
-
 
 export async function fetchPointTransactions(uid: string, take = 50) {
   const base = collection(db, "pointTransactions");
@@ -159,13 +158,25 @@ async function createRewardCoupon(uid: string, reward: ClaimableReward) {
     code, // scannable côté admin
     status: "active", // 'used' quand validé
     createdAt: serverTimestamp(),
+    ...(reward.image && { imageUrl: reward.image }), // Stocker l'image seulement si elle existe
   };
+
+  console.log("💾 Coupon à sauvegarder:", {
+    title: reward.title,
+    rewardImage: reward.image,
+    couponImageUrl: coupon.imageUrl,
+  });
   await setDoc(couponRef, coupon);
+  console.log("✅ Coupon sauvegardé en BDD");
   return coupon;
 }
 
 export async function claimReward(uid: string, reward: ClaimableReward) {
   // Simple: 2 étapes séquentielles (si tu veux du "vrai" atomique, on peut faire une Cloud Function)
+  console.log("🔥 claimReward appelé avec:", {
+    title: reward.title,
+    image: reward.image,
+  });
   const coupon = await createRewardCoupon(uid, reward);
   await spendPoints(uid, reward.pointsCost, `Récompense: ${reward.title}`);
   return coupon;

@@ -10,4 +10,5 @@ export interface Coupon {
   status: CouponStatus;
   createdAt?: any;
   usedAt?: any;
+  imageUrl?: string;
 }

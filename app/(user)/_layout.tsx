@@ -1,18 +1,44 @@
-import { Tabs, router } from "expo-router";
-import { View, ImageBackground, Text, TouchableOpacity } from "react-native";
-import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
-import { theme } from "@/theme";
 import { useAuth } from "@/providers/AuthProvider";
+import { getActiveContest } from "@/services";
+import { theme } from "@/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { Tabs, router } from "expo-router";
+import { useEffect, useState } from "react";
+import { ImageBackground, Text, TouchableOpacity, View } from "react-native";
 
 export default function UserLayout() {
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
+  const [hasActiveContest, setHasActiveContest] = useState(false);
+  const [contestTitle, setContestTitle] = useState("Concours");
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const c = await getActiveContest();
+        if (!mounted) return;
+        if (c) {
+          setHasActiveContest(true);
+          setContestTitle(c.title || "Concours");
+        } else {
+          setHasActiveContest(false);
+        }
+      } catch {
+        if (mounted) setHasActiveContest(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <ImageBackground
-      source={require("../../assets/gta-bg.jpg")}
+      source={require("../../assets/gta-bg.png")}
       resizeMode="cover"
+      blurRadius={12}
       style={{ flex: 1 }}
     >
       <View
@@ -23,7 +49,8 @@ export default function UserLayout() {
           right: 0,
           top: 0,
           bottom: 0,
-          backgroundColor: "rgba(5,7,10,0.65)",
+          backgroundColor: "rgba(5,7,10,0.25)",
+
         }}
       />
 
@@ -82,6 +109,18 @@ export default function UserLayout() {
             ),
           }}
         />
+
+        <Tabs.Screen
+          name="qr"
+          options={{
+            title: "QR Code",
+            tabBarLabel: "QR Code",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="qr-code" color={color} size={size} />
+            ),
+          }}
+        />
+
         <Tabs.Screen
           name="points"
           options={{
@@ -92,6 +131,18 @@ export default function UserLayout() {
             ),
           }}
         />
+        {hasActiveContest ? (
+          <Tabs.Screen
+            name="concours"
+            options={{
+              title: contestTitle,
+              tabBarLabel: "Concours",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="gift" color={color} size={size} />
+              ),
+            }}
+          />
+        ) : <Tabs.Screen name="concours" options={{ href: null }} />}
         <Tabs.Screen
           name="coupons"
           options={{
@@ -102,18 +153,6 @@ export default function UserLayout() {
             ),
           }}
         />
-        <Tabs.Screen
-          name="promos"
-          options={{
-            title: "Promos",
-            tabBarLabel: "Promos",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="pricetag" color={color} size={size} />
-            ),
-          }}
-        />
-
-        <Tabs.Screen name="qr" options={{ href: null }} />
       </Tabs>
     </ImageBackground>
   );

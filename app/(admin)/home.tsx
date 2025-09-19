@@ -1,21 +1,16 @@
+import { fetchActiveCouponsGlobal, fetchGlobalStats } from "@/services";
+import { theme } from "@/theme";
+import type { Coupon } from "@/types";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  ImageBackground,
-  Pressable,
   ActivityIndicator,
   Image,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
 } from "react-native";
-import { router } from "expo-router";
-import { theme } from "@/theme";
-import {
-  fetchCoupons,
-  fetchGlobalStats,
-  fetchActiveCouponsGlobal,
-} from "@/services";
-import { Coupon } from "@/types";
 
 export default function AdminHomeScreen() {
   const [loading, setLoading] = useState(true);

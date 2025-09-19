@@ -1,14 +1,15 @@
-import { Tabs, router } from "expo-router";
 import { theme } from "@/theme";
-import { Text, TouchableOpacity, View, ImageBackground } from "react-native";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { Tabs, router } from "expo-router";
+import { ImageBackground, Text, TouchableOpacity, View } from "react-native";
 
 export default function AdminLayout() {
   return (
     <ImageBackground
-      source={require("../../assets/gta-bg.jpg")}
+      source={require("../../assets/gta-bg.png")}
       resizeMode="cover"
+      blurRadius={12}
       style={{ flex: 1 }}
     >
       <View
@@ -90,6 +91,16 @@ export default function AdminLayout() {
             tabBarLabel: "Promos",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="pricetag" color={color} size={size} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="concours"
+          options={{
+            title: "Concours",
+            tabBarLabel: "Concours",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="trophy" color={color} size={size} />
             ),
           }}
         />

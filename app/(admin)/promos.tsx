@@ -1,19 +1,19 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-} from "react-native";
-import { theme } from "@/theme";
 import {
   createGlobalPromo,
-  listRecentActivePromosGlobal,
   expireSomeGlobalPromos,
+  listRecentActivePromosGlobal,
 } from "@/services";
+import { theme } from "@/theme";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 export default function AdminPromosScreen() {
   const [title, setTitle] = useState("");
@@ -42,8 +42,8 @@ export default function AdminPromosScreen() {
       setLoading(true);
       const res = await createGlobalPromo(title.trim());
       Alert.alert(
-        "Promo créée",
-        `Coupons créés pour ${res.usersCount} clients.`
+        "Promo créée avec succès !",
+        `✅ ${res.created} coupons créés pour ${res.usersCount} clients\n\n📱 Notifications push envoyées à tous les utilisateurs\n\n🎉 Tous les clients ont été notifiés de la nouvelle promo !`
       );
       setTitle("");
       await load();
@@ -133,8 +133,9 @@ export default function AdminPromosScreen() {
         </Pressable>
 
         <Text style={{ color: theme.colors.sub, fontSize: 12 }}>
-          Cette action crée un coupon “promo” actif pour chaque client (limité
-          par lots de 400).
+          Cette action crée un coupon "promo" actif pour chaque client et envoie
+          une notification push à tous les utilisateurs. Gestion automatique des
+          lots pour un nombre illimité d'utilisateurs.
         </Text>
       </View>
 

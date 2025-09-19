@@ -1,26 +1,27 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { PointTx } from "@/constants/PointTx";
 import {
-  View,
-  Text,
-  ActivityIndicator,
-  TextInput,
-  Button,
-  Alert,
-  Modal,
-} from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import { theme } from "@/theme";
-import {
+  addPointsByAmount,
+  fetchCoupons,
+  fetchPointTransactions,
   getUserByCustomerCode,
   getUserProfile,
-  fetchPointTransactions,
-  fetchCoupons,
-  addPointsByAmount,
   markCouponUsed,
 } from "@/lib/store";
-import { PointTx } from "@/constants/PointTx";
-import { Coupon } from "@/constants/Coupon";
+import { theme } from "@/theme";
+import type { Coupon } from "@/types";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Button,
+  Modal,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 export default function ClientSheet() {
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -35,6 +36,19 @@ export default function ClientSheet() {
   // expo-camera permissions
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedOnce, setScannedOnce] = useState(false); // évite double scan dans le modal
+  const [isScanningCoupon, setIsScanningCoupon] = useState(true);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [manualCouponCode, setManualCouponCode] = useState("");
+  const [cameraHeight] = useState(new Animated.Value(0.7));
+
+  // Animation pour la hauteur de la caméra dans le modal
+  React.useEffect(() => {
+    Animated.timing(cameraHeight, {
+      toValue: isInputFocused ? 0.4 : 0.7,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [isInputFocused, cameraHeight]);
 
   const normalizedCode = (() => {
     const raw = String(code ?? "");
@@ -45,44 +59,47 @@ export default function ClientSheet() {
     return cleaned;
   })();
 
-async function load() {
-  setLoading(true);
-  try {
-    // 1) trouver le client
-    const u = await getUserByCustomerCode(String(code));
-    console.log("u", u);
-    if (!u) {
-      setUser(null);
-      Alert.alert("Introuvable", "Aucun client pour ce code.");
-      return;
-    }
-
-    // 2) profil & balance immédiatement (NE JETTE PAS L’UI SI LA SUITE ÉCHOUE)
-    const profile = await getUserProfile(u.uid);
-    const effectiveUser = profile || u;
-    setUser(effectiveUser);
-    setBalance(
-      typeof effectiveUser.balance === "number" ? effectiveUser.balance : 0
-    );
-
-    // 3) charger tx/coupons sans bloquer l’UI si ça échoue
+  async function load() {
+    setLoading(true);
     try {
-      const [txs, cps] = await Promise.all([
-        fetchPointTransactions(effectiveUser.uid, 100),
-        fetchCoupons(effectiveUser.uid),
-      ]);
-      setTx(txs);
-      setCoupons(cps);
-    } catch (e: any) {
-      console.warn("Chargement historique/coupons a échoué:", e?.message ?? e);
-      // On garde au moins la fiche client visible
-      setTx([]);
-      setCoupons([]);
+      // 1) trouver le client
+      const u = await getUserByCustomerCode(String(code));
+      console.log("u", u);
+      if (!u) {
+        setUser(null);
+        Alert.alert("Introuvable", "Aucun client pour ce code.");
+        return;
+      }
+
+      // 2) profil & balance immédiatement (NE JETTE PAS L’UI SI LA SUITE ÉCHOUE)
+      const profile = await getUserProfile(u.uid);
+      const effectiveUser = profile || u;
+      setUser(effectiveUser);
+      setBalance(
+        typeof effectiveUser.balance === "number" ? effectiveUser.balance : 0
+      );
+
+      // 3) charger tx/coupons sans bloquer l’UI si ça échoue
+      try {
+        const [txs, cps] = await Promise.all([
+          fetchPointTransactions(effectiveUser.uid, 100),
+          fetchCoupons(effectiveUser.uid),
+        ]);
+        setTx(txs);
+        setCoupons(cps);
+      } catch (e: any) {
+        console.warn(
+          "Chargement historique/coupons a échoué:",
+          e?.message ?? e
+        );
+        // On garde au moins la fiche client visible
+        setTx([]);
+        setCoupons([]);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
   }
-}
 
   useEffect(() => {
     load();
@@ -115,7 +132,7 @@ async function load() {
   );
 
   async function openScanner() {
-    // Demande la permission caméra avant d’ouvrir le modal
+    // Demande la permission caméra avant d'ouvrir le modal
     if (!permission || !permission.granted) {
       const res = await requestPermission();
       if (!res.granted) {
@@ -127,6 +144,9 @@ async function load() {
       }
     }
     setScannedOnce(false);
+    setIsScanningCoupon(true);
+    setIsInputFocused(false);
+    setManualCouponCode("");
     setScanCouponVisible(true);
   }
 
@@ -377,36 +397,113 @@ async function load() {
               />
             </View>
           ) : (
-            <View
-              style={{
-                flex: 1,
-                borderRadius: 16,
-                overflow: "hidden",
-                borderWidth: 1,
-                borderColor: theme.colors.border,
-              }}
-            >
-              <CameraView
-                style={{ width: "100%", height: "100%" }}
-                facing="back"
-                barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-                onBarcodeScanned={
-                  scannedOnce
-                    ? undefined
-                    : ({ data }) => {
-                        if (typeof data === "string" && data.trim()) {
-                          setScannedOnce(true);
-                          setScanCouponVisible(false);
-                          onRedeemCouponByCode(String(data));
+            <>
+              <Animated.View
+                style={{
+                  flex: cameraHeight,
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  borderWidth: 1,
+                  borderColor: theme.colors.border,
+                  marginBottom: 16,
+                }}
+              >
+                <CameraView
+                  style={{ width: "100%", height: "100%" }}
+                  facing="back"
+                  barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                  onBarcodeScanned={
+                    !isScanningCoupon || scannedOnce
+                      ? undefined
+                      : ({ data }) => {
+                          if (typeof data === "string" && data.trim()) {
+                            setScannedOnce(true);
+                            setIsScanningCoupon(false);
+                            setScanCouponVisible(false);
+                            onRedeemCouponByCode(String(data));
+                          }
                         }
-                      }
-                }
-              />
-            </View>
-          )}
+                  }
+                />
+              </Animated.View>
 
-          <View style={{ height: 16 }} />
-          <Button title="Fermer" onPress={() => setScanCouponVisible(false)} />
+              {/* Champ de saisie manuelle */}
+              <View style={{ gap: 10 }}>
+                <Text
+                  style={{
+                    color: theme.colors.text,
+                    fontSize: 16,
+                    fontWeight: "700",
+                  }}
+                >
+                  Ou saisie manuelle
+                </Text>
+                <TextInput
+                  placeholder="Code du coupon"
+                  placeholderTextColor="#666"
+                  value={manualCouponCode}
+                  onChangeText={setManualCouponCode}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
+                  style={{
+                    color: theme.colors.text,
+                    borderColor: isInputFocused
+                      ? theme.colors.neon
+                      : theme.colors.border,
+                    borderWidth: isInputFocused ? 2 : 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    backgroundColor: theme.colors.card,
+                    fontSize: 16,
+                    fontWeight: "600",
+                  }}
+                />
+                {isInputFocused && (
+                  <Text
+                    style={{
+                      color: theme.colors.sub,
+                      fontSize: 12,
+                      textAlign: "center",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    💡 Le scanner s'est réduit pour vous laisser de la place
+                  </Text>
+                )}
+                <Button
+                  title="Valider le coupon"
+                  onPress={() => {
+                    if (manualCouponCode.trim()) {
+                      setScanCouponVisible(false);
+                      onRedeemCouponByCode(manualCouponCode.trim());
+                    } else {
+                      Alert.alert(
+                        "Code requis",
+                        "Veuillez saisir un code de coupon."
+                      );
+                    }
+                  }}
+                />
+              </View>
+
+              <View style={{ height: 16 }} />
+
+              {!isScanningCoupon && (
+                <Button
+                  title="Réactiver le scanner"
+                  onPress={() => {
+                    setIsScanningCoupon(true);
+                    setScannedOnce(false);
+                  }}
+                />
+              )}
+
+              <Button
+                title="Fermer"
+                onPress={() => setScanCouponVisible(false)}
+              />
+            </>
+          )}
         </View>
       </Modal>
     </View>

@@ -1,20 +1,21 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ImageBackground,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
-import { Link, router } from "expo-router";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { theme } from "@/theme";
+import { BlurView } from "expo-blur";
+import { Link, router } from "expo-router";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 export default function RegisterScreen() {
   const [displayName, setDisplayName] = useState("");
@@ -48,8 +49,9 @@ export default function RegisterScreen() {
 
   return (
     <ImageBackground
-      source={require("../../assets/gta-bg.jpg")}
+      source={require("../../assets/gta-bg.png")}
       resizeMode="cover"
+      blurRadius={12}
       style={{ flex: 1, backgroundColor: "#000" }}
     >
       <View
@@ -101,139 +103,205 @@ export default function RegisterScreen() {
 
           <View
             style={{
-              backgroundColor: "rgba(15,18,25,0.9)",
+              borderRadius: 20,
+              overflow: "hidden",
               borderWidth: 1,
-              borderColor: theme.colors.border,
-              borderRadius: 16,
-              padding: 16,
-              gap: 12,
+              borderColor: "rgba(255,255,255,0.2)",
+              backgroundColor: "rgba(255,255,255,0.05)",
+              shadowColor: "#22C55E",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.15,
+              shadowRadius: 20,
+              elevation: 8,
             }}
           >
-            <Text
-              style={{
-                color: theme.colors.text,
-                fontSize: 18,
-                fontWeight: "800",
-              }}
+            <BlurView
+              tint="dark"
+              intensity={20}
+              style={{ padding: 20, gap: 16 }}
             >
-              Inscription
-            </Text>
-
-            <View style={{ gap: 6 }}>
-              <Text style={{ color: theme.colors.sub, fontSize: 12 }}>
-                Nom d’affichage
-              </Text>
-              <TextInput
-                placeholder="Franklin, Michael..."
-                placeholderTextColor="#6f7a8a"
-                value={displayName}
-                onChangeText={setDisplayName}
-                style={inputStyle}
-              />
-            </View>
-
-            <View style={{ gap: 6 }}>
-              <Text style={{ color: theme.colors.sub, fontSize: 12 }}>
-                Email
-              </Text>
-              <TextInput
-                placeholder="you@example.com"
-                placeholderTextColor="#6f7a8a"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-                style={inputStyle}
-              />
-            </View>
-
-            <View style={{ gap: 6 }}>
-              <Text style={{ color: theme.colors.sub, fontSize: 12 }}>
-                Mot de passe
-              </Text>
-              <View style={{ position: "relative" }}>
-                <TextInput
-                  placeholder="••••••••"
-                  placeholderTextColor="#6f7a8a"
-                  secureTextEntry={!show1}
-                  value={pass}
-                  onChangeText={setPass}
-                  style={[inputStyle, { paddingRight: 42 }]}
-                />
-                <TouchableOpacity
-                  onPress={() => setShow1((s) => !s)}
-                  style={eyeBtn}
-                >
-                  <Text style={{ color: theme.colors.sub }}>
-                    {show1 ? "Masquer" : "Voir"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={{ gap: 6 }}>
-              <Text style={{ color: theme.colors.sub, fontSize: 12 }}>
-                Confirmer
-              </Text>
-              <View style={{ position: "relative" }}>
-                <TextInput
-                  placeholder="••••••••"
-                  placeholderTextColor="#6f7a8a"
-                  secureTextEntry={!show2}
-                  value={confirm}
-                  onChangeText={setConfirm}
-                  style={[inputStyle, { paddingRight: 42 }]}
-                />
-                <TouchableOpacity
-                  onPress={() => setShow2((s) => !s)}
-                  style={eyeBtn}
-                >
-                  <Text style={{ color: theme.colors.sub }}>
-                    {show2 ? "Masquer" : "Voir"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={onRegister}
-              disabled={loading}
-              style={{
-                marginTop: 8,
-                backgroundColor: theme.colors.neon2,
-                borderRadius: 12,
-                paddingVertical: 14,
-                alignItems: "center",
-                shadowColor: theme.colors.neon2,
-                shadowOpacity: 0.6,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 0 },
-                elevation: 4,
-              }}
-            >
-              {loading ? (
-                <ActivityIndicator color="#20011e" />
-              ) : (
+              <View style={{ alignItems: "center", marginBottom: 8 }}>
                 <Text
                   style={{
-                    color: "#20011e",
+                    color: "#fff",
+                    fontSize: 24,
                     fontWeight: "900",
-                    letterSpacing: 0.6,
+                    letterSpacing: 0.5,
                   }}
                 >
-                  Démarrer l’aventure
+                  Inscription
                 </Text>
-              )}
-            </TouchableOpacity>
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.7)",
+                    fontSize: 14,
+                    marginTop: 4,
+                  }}
+                >
+                  Crée ton compte et gagne des points
+                </Text>
+              </View>
 
-            <View style={{ alignItems: "center", marginTop: 10 }}>
-              <Text style={{ color: theme.colors.sub }}>
-                Déjà un compte ?{" "}
-                <Link href="/(auth)/login" style={{ color: theme.colors.neon2 }}>
-                  Connexion
-                </Link>
-              </Text>
-            </View>
+              <View style={{ gap: 8 }}>
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  👤 Nom d'affichage
+                </Text>
+                <TextInput
+                  placeholder="Votre nom d'affichage"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  style={inputStyle}
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={{ gap: 8 }}>
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  📧 Email
+                </Text>
+                <TextInput
+                  placeholder="Votre adresse email"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                  style={inputStyle}
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={{ gap: 8 }}>
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  🔒 Mot de passe
+                </Text>
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    placeholder="••••••••"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    secureTextEntry={!show1}
+                    value={pass}
+                    onChangeText={setPass}
+                    style={[inputStyle, { paddingRight: 50 }]}
+                    returnKeyType="next"
+                  />
+                  <Pressable onPress={() => setShow1((s) => !s)} style={eyeBtn}>
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.6)",
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {show1 ? "👁️" : "👁️‍🗨️"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={{ gap: 8 }}>
+                <Text
+                  style={{
+                    color: "rgba(255,255,255,0.8)",
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  ✅ Confirmer le mot de passe
+                </Text>
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    placeholder="••••••••"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    secureTextEntry={!show2}
+                    value={confirm}
+                    onChangeText={setConfirm}
+                    style={[inputStyle, { paddingRight: 50 }]}
+                    returnKeyType="go"
+                    onSubmitEditing={onRegister}
+                  />
+                  <Pressable onPress={() => setShow2((s) => !s)} style={eyeBtn}>
+                    <Text
+                      style={{
+                        color: "rgba(255,255,255,0.6)",
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {show2 ? "👁️" : "👁️‍🗨️"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={onRegister}
+                disabled={loading}
+                style={{
+                  marginTop: 8,
+                  backgroundColor: loading ? "rgba(34,197,94,0.5)" : "#22C55E",
+                  borderRadius: 16,
+                  paddingVertical: 16,
+                  alignItems: "center",
+                  shadowColor: "#22C55E",
+                  shadowOpacity: 0.4,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 6,
+                  transform: [{ scale: loading ? 0.98 : 1 }],
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "900",
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    🎉 Démarrer l'aventure
+                  </Text>
+                )}
+              </Pressable>
+
+              <View style={{ alignItems: "center", marginTop: 16 }}>
+                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 14 }}>
+                  Déjà un compte ?{" "}
+                  <Link
+                    href="/(auth)/login"
+                    style={{
+                      color: "#22C55E",
+                      fontWeight: "700",
+                      textDecorationLine: "underline",
+                    }}
+                  >
+                    Se connecter
+                  </Link>
+                </Text>
+              </View>
+            </BlurView>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -242,20 +310,23 @@ export default function RegisterScreen() {
 }
 
 const inputStyle = {
-  color: theme.colors.text,
-  backgroundColor: "#0b0f16",
+  color: "#fff",
+  backgroundColor: "rgba(255,255,255,0.1)",
   borderWidth: 1,
-  borderColor: theme.colors.border,
-  borderRadius: 12,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
+  borderColor: "rgba(255,255,255,0.2)",
+  borderRadius: 14,
+  paddingHorizontal: 16,
+  paddingVertical: 14,
+  fontSize: 16,
 };
 
 const eyeBtn = {
   position: "absolute" as const,
-  right: 10,
-  top: 10,
-  padding: 6,
+  right: 12,
+  top: 12,
+  padding: 8,
+  borderRadius: 8,
+  backgroundColor: "rgba(255,255,255,0.1)",
 };
 
 // hack TS RN

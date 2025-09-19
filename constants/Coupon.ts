@@ -10,4 +10,5 @@ export type Coupon = {
   status: CouponStatus;
   createdAt: any;
   expiresAt?: any | null;
+  imageUrl?: string;
 };

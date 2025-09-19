@@ -1,0 +1,315 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // FONCTIONS UTILITAIRES
+    // ========================================
+    
+    // Vérifier si l'utilisateur est authentifié
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Vérifier si l'utilisateur est le propriétaire du document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Vérifier si l'utilisateur est admin (avec gestion d'erreur)
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Vérifier si l'utilisateur peut lire les données admin
+    function canReadAdminData() {
+      return isAdmin();
+    }
+    
+    // Vérifier si l'utilisateur peut écrire les données admin
+    function canWriteAdminData() {
+      return isAdmin();
+    }
+    
+    // Vérifier si les données sont valides pour un utilisateur
+    function isValidUserData(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             data.email is string &&
+             data.role in ['admin', 'user'] &&
+             (data.balance == null || data.balance is number) &&
+             (data.customerCode == null || data.customerCode is string) &&
+             (data.displayName == null || data.displayName is string) &&
+             (data.photoURL == null || data.photoURL is string);
+    }
+    
+    // Vérifier si les données de coupon sont valides
+    function isValidCouponData(data) {
+      return data.keys().hasAll(['uid', 'title', 'code', 'type', 'status']) &&
+             data.uid is string &&
+             data.title is string &&
+             data.code is string &&
+             data.type in ['promo', 'reward'] &&
+             data.status in ['active', 'used', 'expired'] &&
+             (data.imageUrl == null || data.imageUrl is string);
+    }
+    
+    // Vérifier si les données de transaction de points sont valides
+    function isValidPointTxData(data) {
+      return data.keys().hasAll(['uid', 'delta', 'reason']) &&
+             data.uid is string &&
+             data.delta is number &&
+             data.reason is string &&
+             (data.orderAmount == null || data.orderAmount is number);
+    }
+    
+    // Vérifier si les données de concours sont valides
+    function isValidContestData(data) {
+      return data.keys().hasAll(['title', 'prize', 'ticketCostPoints', 'closesAt', 'active']) &&
+             data.title is string &&
+             data.prize is string &&
+             data.ticketCostPoints is number &&
+             data.ticketCostPoints > 0 &&
+             data.closesAt is number &&
+             data.active is bool &&
+             (data.imageUrl == null || data.imageUrl is string) &&
+             (data.totalTickets == null || data.totalTickets is number);
+    }
+    
+    // ========================================
+    // COLLECTION USERS
+    // ========================================
+    match /users/{userId} {
+      // Lecture : propriétaire ou admin
+      allow read: if isOwner(userId) || canReadAdminData();
+      
+      // Création : propriétaire uniquement avec données valides
+      allow create: if isOwner(userId) && isValidUserData(request.resource.data);
+      
+      // Mise à jour : propriétaire ou admin avec données valides
+      allow update: if (isOwner(userId) || canWriteAdminData()) && 
+                       isValidUserData(request.resource.data);
+      
+      // Suppression : admin uniquement
+      allow delete: if canWriteAdminData();
+      
+      // ========================================
+      // SOUS-COLLECTION NOTIFICATION TOKENS
+      // ========================================
+      match /notificationTokens/{tokenId} {
+        // Lecture/écriture : propriétaire uniquement
+        allow read, write: if isOwner(userId);
+        
+        // Validation des données de token
+        allow create, update: if isOwner(userId) &&
+                                 request.resource.data.keys().hasAll(['token', 'deviceId', 'platform']) &&
+                                 request.resource.data.token is string &&
+                                 request.resource.data.deviceId is string &&
+                                 request.resource.data.platform is string;
+      }
+    }
+    
+    // ========================================
+    // COLLECTION COUPONS
+    // ========================================
+    match /coupons/{couponId} {
+      // Lecture : propriétaire ou admin
+      allow read: if isOwner(resource.data.uid) || canReadAdminData();
+      
+      // Création : admin uniquement avec données valides
+      allow create: if canWriteAdminData() && isValidCouponData(request.resource.data);
+      
+      // Mise à jour : propriétaire (pour marquer comme utilisé) ou admin
+      allow update: if (isOwner(resource.data.uid) || canWriteAdminData()) &&
+                       isValidCouponData(request.resource.data) &&
+                       // Empêcher la modification de l'uid par le propriétaire
+                       (canWriteAdminData() || resource.data.uid == request.resource.data.uid);
+      
+      // Suppression : admin uniquement
+      allow delete: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION CONTESTS
+    // ========================================
+    match /contests/{contestId} {
+      // Lecture : tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Création : admin uniquement avec données valides
+      allow create: if canWriteAdminData() && isValidContestData(request.resource.data);
+      
+      // Mise à jour : admin uniquement avec données valides
+      allow update: if canWriteAdminData() && isValidContestData(request.resource.data);
+      
+      // Suppression : admin uniquement
+      allow delete: if canWriteAdminData();
+      
+      // ========================================
+      // SOUS-COLLECTION PARTICIPANTS
+      // ========================================
+      match /participants/{participantId} {
+        // Lecture : propriétaire ou admin
+        allow read: if isOwner(resource.data.uid) || canReadAdminData();
+        
+        // Création : propriétaire uniquement (pour participer)
+        allow create: if isOwner(request.resource.data.uid) &&
+                         request.resource.data.keys().hasAll(['uid']) &&
+                         request.resource.data.uid is string &&
+                         (request.resource.data.numTickets == null || request.resource.data.numTickets is number) &&
+                         (request.resource.data.pointsSpent == null || request.resource.data.pointsSpent is number);
+        
+        // Mise à jour : propriétaire ou admin
+        allow update: if (isOwner(resource.data.uid) || canWriteAdminData()) &&
+                         request.resource.data.uid == resource.data.uid &&
+                         (request.resource.data.numTickets == null || request.resource.data.numTickets is number) &&
+                         (request.resource.data.pointsSpent == null || request.resource.data.pointsSpent is number);
+        
+        // Suppression : admin uniquement
+        allow delete: if canWriteAdminData();
+      }
+    }
+    
+    // ========================================
+    // COLLECTION POINT TRANSACTIONS
+    // ========================================
+    match /pointTransactions/{transactionId} {
+      // Lecture : propriétaire ou admin
+      allow read: if isOwner(resource.data.uid) || canReadAdminData();
+      
+      // Création : propriétaire ou admin avec données valides
+      allow create: if (isOwner(request.resource.data.uid) || canWriteAdminData()) &&
+                       isValidPointTxData(request.resource.data);
+      
+      // Mise à jour : admin uniquement (pour corriger des erreurs)
+      allow update: if canWriteAdminData() && isValidPointTxData(request.resource.data);
+      
+      // Suppression : admin uniquement
+      allow delete: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION NOTIFICATION TOKENS (collection principale)
+    // ========================================
+    match /notificationTokens/{tokenId} {
+      // Lecture : propriétaire ou admin
+      allow read: if isOwner(resource.data.uid) || canReadAdminData();
+      
+      // Création : propriétaire uniquement avec données valides
+      allow create: if isOwner(request.resource.data.uid) &&
+                       request.resource.data.keys().hasAll(['uid', 'token', 'deviceId', 'platform']) &&
+                       request.resource.data.uid is string &&
+                       request.resource.data.token is string &&
+                       request.resource.data.deviceId is string &&
+                       request.resource.data.platform is string;
+      
+      // Mise à jour : propriétaire ou admin
+      allow update: if (isOwner(resource.data.uid) || canWriteAdminData()) &&
+                       request.resource.data.uid == resource.data.uid &&
+                       request.resource.data.token is string &&
+                       request.resource.data.deviceId is string &&
+                       request.resource.data.platform is string;
+      
+      // Suppression : propriétaire ou admin
+      allow delete: if isOwner(resource.data.uid) || canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION REWARDS (données statiques)
+    // ========================================
+    match /rewards/{rewardId} {
+      // Lecture : tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Création/modification/suppression : admin uniquement
+      allow write: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION STATS (données admin)
+    // ========================================
+    match /stats/{statId} {
+      // Lecture : admin uniquement
+      allow read: if canReadAdminData();
+      
+      // Création/modification/suppression : admin uniquement
+      allow write: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION PROMOS (données statiques)
+    // ========================================
+    match /promos/{promoId} {
+      // Lecture : tous les utilisateurs authentifiés
+      allow read: if isAuthenticated();
+      
+      // Création/modification/suppression : admin uniquement
+      allow write: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION BALANCES (si utilisée séparément)
+    // ========================================
+    match /balances/{balanceId} {
+      // Lecture : propriétaire ou admin
+      allow read: if isOwner(resource.data.uid) || canReadAdminData();
+      
+      // Création/modification : admin uniquement (les soldes sont gérés via les transactions)
+      allow write: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION GLOBAL_STATS (statistiques globales)
+    // ========================================
+    match /globalStats/{statId} {
+      // Lecture : admin uniquement
+      allow read: if canReadAdminData();
+      
+      // Création/modification/suppression : admin uniquement
+      allow write: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION SYSTEM (configuration système)
+    // ========================================
+    match /system/{configId} {
+      // Lecture : admin uniquement
+      allow read: if canReadAdminData();
+      
+      // Création/modification/suppression : admin uniquement
+      allow write: if canWriteAdminData();
+    }
+    
+    // ========================================
+    // COLLECTION AUDIT_LOGS (logs d'audit)
+    // ========================================
+    match /auditLogs/{logId} {
+      // Lecture : admin uniquement
+      allow read: if canReadAdminData();
+      
+      // Création : système uniquement (pas d'écriture directe)
+      allow write: if false;
+    }
+    
+    // ========================================
+    // SÉCURITÉ SUPPLÉMENTAIRE
+    // ========================================
+    
+    // Règles pour empêcher l'escalade de privilèges
+    match /users/{userId} {
+      // Empêcher un utilisateur normal de se promouvoir admin
+      allow update: if isOwner(userId) && 
+                       (resource.data.role == request.resource.data.role || canWriteAdminData());
+    }
+    
+    // ========================================
+    // RÈGLES PAR DÉFAUT - TRÈS IMPORTANT
+    // ========================================
+    
+    // Refuser explicitement tout accès aux autres collections non définies
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

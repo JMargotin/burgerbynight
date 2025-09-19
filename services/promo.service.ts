@@ -1,28 +1,39 @@
+import { db } from "@/lib/firebase";
 import {
   collection,
   doc,
   getDocs,
+  limit as qlimit,
   query,
   serverTimestamp,
   where,
   writeBatch,
-  limit as qlimit,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { randomCode } from "./coupon.service";
+import { sendNotificationToAllUsers } from "./notification.service";
 
-export async function createGlobalPromo(title: string) {
+export async function createGlobalPromo(title: string, imageUrl?: string) {
   if (!title?.trim()) throw new Error("Titre requis");
+
+  // Récupérer tous les utilisateurs
   const usersSnap = await getDocs(query(collection(db, "users")));
   const users = usersSnap.docs;
   const now = serverTimestamp();
 
-  const CHUNK = 400;
+  // Image par défaut : icône de l'app
+  const defaultImageUrl = "assets/images/icon.png";
+  const finalImageUrl = imageUrl || defaultImageUrl;
+
+  console.log(`Création de promo pour ${users.length} utilisateurs...`);
+
+  // Créer les coupons par lots de 500 (limite Firestore)
+  const COUPON_CHUNK = 500;
   let created = 0;
 
-  for (let i = 0; i < users.length; i += CHUNK) {
+  for (let i = 0; i < users.length; i += COUPON_CHUNK) {
     const batch = writeBatch(db);
-    const slice = users.slice(i, i + CHUNK);
+    const slice = users.slice(i, i + COUPON_CHUNK);
+
     slice.forEach((u) => {
       const id = doc(collection(db, "coupons")).id;
       batch.set(doc(db, "coupons", id), {
@@ -32,14 +43,44 @@ export async function createGlobalPromo(title: string) {
         type: "promo",
         code: randomCode("PRM"),
         status: "active",
+        imageUrl: finalImageUrl,
         createdAt: now,
       });
     });
+
     await batch.commit();
     created += slice.length;
+    console.log(`Coupons créés: ${created}/${users.length}`);
   }
 
-  return { created, usersCount: users.length };
+  console.log(`✅ Tous les coupons créés (${created} total)`);
+
+  // Envoyer les notifications push par lots
+  try {
+    console.log("Envoi des notifications push...");
+    const notificationResult = await sendNotificationToAllUsers(
+      "🎉 Nouvelle promo disponible !",
+      title,
+      {
+        type: "promo",
+        title,
+        action: "open_app",
+      }
+    );
+
+    console.log(
+      `📱 Notifications envoyées: ${notificationResult.sent} succès, ${notificationResult.failed} échecs`
+    );
+  } catch (error) {
+    console.error("Erreur lors de l'envoi des notifications:", error);
+    // Ne pas faire échouer la création de promo si les notifications échouent
+  }
+
+  return {
+    created,
+    usersCount: users.length,
+    notificationsSent: true,
+  };
 }
 
 export async function listRecentActivePromosGlobal(take = 20) {
