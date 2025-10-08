@@ -1,11 +1,11 @@
+import { db } from "@/lib/firebase";
 import {
+  collection,
   doc,
-  writeBatch,
   increment,
   serverTimestamp,
-  collection,
+  writeBatch,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 export async function addPointsByAmount(
   uid: string,
@@ -39,6 +39,10 @@ export async function spendPoints(
   points: number,
   reason = "Récompense"
 ) {
+  if (!points || points <= 0) {
+    throw new Error("Le nombre de points à dépenser doit être positif");
+  }
+
   const delta = -Math.abs(points);
   const batch = writeBatch(db);
 

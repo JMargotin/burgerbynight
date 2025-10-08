@@ -15,7 +15,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   newArchEnabled: true,
 
   ios: {
-    supportsTablet: true,
+    supportsTablet: false,
+
     bundleIdentifier: "fr.jmstudio.burgerbynight",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,

@@ -35,24 +35,31 @@ export default function UserLayout() {
   }, []);
 
   return (
-    <ImageBackground
-      source={require("../../assets/gta-bg.png")}
-      resizeMode="cover"
-      blurRadius={12}
-      style={{ flex: 1 }}
-    >
-      <View
-        pointerEvents="none"
+    <View style={{ flex: 1 }}>
+      <ImageBackground
+        source={require("../../assets/gta-bg.png")}
+        resizeMode="cover"
+        blurRadius={12}
         style={{
           position: "absolute",
-          left: 0,
-          right: 0,
+          width: "100%",
+          height: "100%",
           top: 0,
-          bottom: 0,
-          backgroundColor: "rgba(5,7,10,0.25)",
-
+          left: 0,
         }}
-      />
+      >
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            backgroundColor: "rgba(5,7,10,0.25)",
+          }}
+        />
+      </ImageBackground>
 
       <Tabs
         screenOptions={{
@@ -142,7 +149,9 @@ export default function UserLayout() {
               ),
             }}
           />
-        ) : <Tabs.Screen name="concours" options={{ href: null }} />}
+        ) : (
+          <Tabs.Screen name="concours" options={{ href: null }} />
+        )}
         <Tabs.Screen
           name="coupons"
           options={{
@@ -153,7 +162,17 @@ export default function UserLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: "Paramètres",
+            tabBarLabel: "Paramètres",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="settings" color={color} size={size} />
+            ),
+          }}
+        />
       </Tabs>
-    </ImageBackground>
+    </View>
   );
 }

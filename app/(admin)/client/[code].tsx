@@ -40,6 +40,7 @@ export default function ClientSheet() {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [manualCouponCode, setManualCouponCode] = useState("");
   const [cameraHeight] = useState(new Animated.Value(0.7));
+  const [isProcessingCoupon, setIsProcessingCoupon] = useState(false); // évite les appels multiples
 
   // Animation pour la hauteur de la caméra dans le modal
   React.useEffect(() => {
@@ -120,15 +121,23 @@ export default function ClientSheet() {
 
   const onRedeemCouponByCode = useCallback(
     async (code: string) => {
+      if (isProcessingCoupon) {
+        console.log("⚠️ Validation déjà en cours, ignoré");
+        return; // Évite les appels multiples
+      }
+
+      setIsProcessingCoupon(true);
       try {
         await markCouponUsed(code.trim(), user.uid);
         Alert.alert("Coupon validé", "Le coupon a été marqué comme utilisé.");
         await load();
       } catch (e: any) {
         Alert.alert("Impossible de valider", e?.message ?? "Erreur");
+      } finally {
+        setIsProcessingCoupon(false);
       }
     },
-    [user]
+    [user, isProcessingCoupon]
   );
 
   async function openScanner() {
@@ -147,7 +156,18 @@ export default function ClientSheet() {
     setIsScanningCoupon(true);
     setIsInputFocused(false);
     setManualCouponCode("");
+    setIsProcessingCoupon(false);
     setScanCouponVisible(true);
+  }
+
+  function closeScannerModal() {
+    // Réinitialise tous les états liés au scanner avant de fermer
+    setScannedOnce(false);
+    setIsScanningCoupon(true);
+    setIsInputFocused(false);
+    setManualCouponCode("");
+    setIsProcessingCoupon(false);
+    setScanCouponVisible(false);
   }
 
   if (loading) {
@@ -361,7 +381,7 @@ export default function ClientSheet() {
       <Modal
         visible={scanCouponVisible}
         animationType="slide"
-        onRequestClose={() => setScanCouponVisible(false)}
+        onRequestClose={() => closeScannerModal()}
       >
         <View
           style={{ flex: 1, backgroundColor: theme.colors.bg, padding: 16 }}
@@ -391,10 +411,7 @@ export default function ClientSheet() {
               </Text>
               <Button title="Autoriser la caméra" onPress={requestPermission} />
               <View style={{ height: 20 }} />
-              <Button
-                title="Fermer"
-                onPress={() => setScanCouponVisible(false)}
-              />
+              <Button title="Fermer" onPress={() => closeScannerModal()} />
             </View>
           ) : (
             <>
@@ -416,10 +433,14 @@ export default function ClientSheet() {
                     !isScanningCoupon || scannedOnce
                       ? undefined
                       : ({ data }) => {
-                          if (typeof data === "string" && data.trim()) {
+                          if (
+                            typeof data === "string" &&
+                            data.trim() &&
+                            !isProcessingCoupon
+                          ) {
                             setScannedOnce(true);
                             setIsScanningCoupon(false);
-                            setScanCouponVisible(false);
+                            closeScannerModal();
                             onRedeemCouponByCode(String(data));
                           }
                         }
@@ -471,12 +492,17 @@ export default function ClientSheet() {
                   </Text>
                 )}
                 <Button
-                  title="Valider le coupon"
+                  title={
+                    isProcessingCoupon
+                      ? "Validation en cours..."
+                      : "Valider le coupon"
+                  }
+                  disabled={isProcessingCoupon}
                   onPress={() => {
-                    if (manualCouponCode.trim()) {
-                      setScanCouponVisible(false);
+                    if (manualCouponCode.trim() && !isProcessingCoupon) {
+                      closeScannerModal();
                       onRedeemCouponByCode(manualCouponCode.trim());
-                    } else {
+                    } else if (!manualCouponCode.trim()) {
                       Alert.alert(
                         "Code requis",
                         "Veuillez saisir un code de coupon."
@@ -498,10 +524,7 @@ export default function ClientSheet() {
                 />
               )}
 
-              <Button
-                title="Fermer"
-                onPress={() => setScanCouponVisible(false)}
-              />
+              <Button title="Fermer" onPress={() => closeScannerModal()} />
             </>
           )}
         </View>

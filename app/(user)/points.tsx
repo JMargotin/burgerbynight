@@ -132,6 +132,7 @@ export default function PointsScreen() {
 
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastClaimTime, setLastClaimTime] = useState<number>(0);
 
   // Modal de détail de récompense
   const [modalVisible, setModalVisible] = useState(false);
@@ -172,6 +173,16 @@ export default function PointsScreen() {
 
   async function onClaim(r: Reward) {
     if (!uid) return;
+
+    // Protection contre les doubles clics
+    const now = Date.now();
+    if (now - lastClaimTime < 2000) {
+      // 2 secondes de délai minimum
+      console.log("⚠️ Tentative de double clic détectée");
+      return;
+    }
+    setLastClaimTime(now);
+
     if ((r.pointsCost || 0) > balance) {
       Alert.alert(
         "Points insuffisants",
@@ -179,28 +190,42 @@ export default function PointsScreen() {
       );
       return;
     }
+
+    setClaimingId(r.id || r.title);
+
     try {
-      setClaimingId(r.id || r.title);
       console.log("🚀 Avant claimReward:", { title: r.title, image: r.image });
       const coupon = await claimReward(uid, r);
       console.log("✅ Coupon créé:", {
         title: coupon.title,
         imageUrl: coupon.imageUrl,
       });
-      Alert.alert("Récompense réclamée", `Coupon créé: ${coupon.title}`);
+
+      // Fermer la modal AVANT l'alert pour éviter les conflits d'interface
+      setModalVisible(false);
+      setSelectedReward(null);
 
       // Rafraîchir les points et les coupons
       await Promise.all([refreshTransactions(), refreshCoupons()]);
 
-      // Fermer la modal
+      // Utiliser setTimeout pour éviter les conflits avec la fermeture de modal
+      setTimeout(() => {
+        Alert.alert("Récompense réclamée", `Coupon créé: ${coupon.title}`);
+      }, 100);
+    } catch (e: any) {
+      console.error("❌ Erreur lors de la réclamation:", e);
+      // Fermer la modal même en cas d'erreur pour éviter le blocage
       setModalVisible(false);
       setSelectedReward(null);
-    } catch (e: any) {
-      Alert.alert(
-        "Erreur",
-        e?.message ?? "Impossible de réclamer cet article."
-      );
+
+      setTimeout(() => {
+        Alert.alert(
+          "Erreur",
+          e?.message ?? "Impossible de réclamer cet article."
+        );
+      }, 100);
     } finally {
+      // S'assurer que l'état est toujours réinitialisé
       setClaimingId(null);
     }
   }
@@ -525,6 +550,7 @@ export default function PointsScreen() {
                     claimingId != null ||
                     (selectedReward?.pointsCost || 0) > balance
                   }
+                  activeOpacity={0.7}
                   style={{
                     backgroundColor:
                       (selectedReward?.pointsCost || 0) > balance
